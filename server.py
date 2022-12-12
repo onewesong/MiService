@@ -23,6 +23,9 @@ service = MiIOService(account)
 
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return VERSION
 
 @app.get("/list")
 async def list():
