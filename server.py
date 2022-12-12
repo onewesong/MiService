@@ -51,7 +51,7 @@ class ActionSay(BaseModel):
 class ActionCommand(BaseModel):
     did: str = MI_DID
     text: str
-    echo: bool = True
+    silent: bool = False
 
 @app.post("/say")
 async def say(action: ActionSay):
@@ -71,6 +71,6 @@ async def command(action: ActionCommand):
             'did': action.did,
             'siid': 5,
             'aiid': 4,
-            'in': [action.text, int(action.echo)]
+            'in': [action.text, int(action.silent)]
         })
     return result
