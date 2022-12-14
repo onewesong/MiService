@@ -61,6 +61,7 @@ class ActionCommand(BaseModel):
 
 @app.post("/say")
 async def say(action: ActionSay):
+    logging.info(action.text)
     result = await service.miot_request('action', {
         'did': action.did,
         'siid': 5,
@@ -74,6 +75,7 @@ async def say(action: ActionSay):
 
 @app.post("/command")
 async def command(action: ActionCommand):
+    logging.info(action.text)
     result = await service.miot_request(
         'action', {
             'did': action.did,
