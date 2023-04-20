@@ -20,6 +20,7 @@ MI_PASS = os.environ["MI_PASS"]
 MI_DID = os.getenv("MI_DID")
 MI_HARDWARE = os.getenv("MI_HARDWARE", "L05C")
 MI_DEVICE_ID = os.getenv("MI_DEVICE_ID", "c172ddc1-34f6-497f-a091-b35b97f14805")
+MI_TOKEN_HOME = os.path.join(str(Path.home()), '.mi.token')
 
 LATEST_ASK_API = "https://userprofile.mina.mi.com/device_profile/v2/conversation?source=dialogu&hardware={hardware}&timestamp={timestamp}&limit={limit}"
 COOKIE_TEMPLATE = "deviceId={device_id}; serviceToken={service_token}; userId={user_id}"
@@ -27,13 +28,12 @@ COOKIE_TEMPLATE = "deviceId={device_id}; serviceToken={service_token}; userId={u
 VERSION = "0.3.0"
 
 session = ClientSession()
-account = MiAccount(session, MI_USER, MI_PASS)
+account = MiAccount(session, MI_USER, MI_PASS, MI_TOKEN_HOME)
 service = MiIOService(account)
 
 
 def get_cookie():
-    mi_token_home = Path.home() / ".mi.token"
-    with open(mi_token_home) as f:
+    with open(MI_TOKEN_HOME) as f:
         user_data = json.loads(f.read())
     user_id = user_data.get("userId")
     service_token = user_data.get("micoapi")[1]
