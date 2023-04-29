@@ -19,6 +19,23 @@ class MiNAService:
         headers = {'User-Agent': 'MiHome/6.0.103 (com.xiaomi.mihome; build:6.0.103.1; iOS 14.4.0) Alamofire/6.0.103 MICO/iOSApp/appStore/6.0.103'}
         return await self.account.mi_request('micoapi', 'https://api2.mina.mi.com' + uri, data, headers)
 
+    async def userprofile_mina_request(self, uri, deviceId, data=None):
+        requestId = 'app_ios_' + get_random(30)
+        if data is not None:
+            data['requestId'] = requestId
+        else:
+            uri += '&requestId=' + requestId
+        headers = {'User-Agent': 'MiHome/6.0.103 (com.xiaomi.mihome; build:6.0.103.1; iOS 14.4.0) Alamofire/6.0.103 MICO/iOSApp/appStore/6.0.103'}
+        return await self.account.mi_request(
+            'micoapi', 'https://userprofile.mina.mi.com' + uri, data, headers, deviceId=deviceId)
+
+    async def conversation(self, hardware, deviceId, timestamp, limit=2):
+        result = await self.userprofile_mina_request(
+            f'/device_profile/v2/conversation?source=dialogu&hardware={hardware}&timestamp={timestamp}&limit={limit}',
+            deviceId=deviceId
+        )
+        return json.loads(result.get('data', '{}'))
+
     async def device_list(self, master=0):
         result = await self.mina_request('/admin/v2/device_list?master=' + str(master))
         return result.get('data') if result else None

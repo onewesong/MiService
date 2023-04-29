@@ -126,3 +126,4 @@ ENV/
 
 
 test_get_last_ask.py
+test/test.ipynb

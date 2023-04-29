@@ -106,9 +106,11 @@ class MiAccount:
                 raise Exception(await r.text())
         return serviceToken
 
-    async def mi_request(self, sid, url, data, headers, relogin=True):
+    async def mi_request(self, sid, url, data, headers, deviceId="", relogin=True):
         if (self.token and sid in self.token) or await self.login(sid):  # Ensure login
             cookies = {'userId': self.token['userId'], 'serviceToken': self.token[sid][1]}
+            if deviceId:
+                cookies['deviceId'] = deviceId
             content = data(self.token, cookies) if callable(data) else data
             method = 'GET' if data is None else 'POST'
             _LOGGER.info("%s %s", url, content)

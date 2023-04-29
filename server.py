@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from aiohttp import ClientSession
 from miservice import MiAccount, MiIOService, MiNAService
-from utils import parse_cookie_string
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -22,28 +21,19 @@ MI_HARDWARE = os.getenv("MI_HARDWARE", "L05C")
 MI_DEVICE_ID = os.getenv("MI_DEVICE_ID", "c172ddc1-34f6-497f-a091-b35b97f14805")
 MI_TOKEN_HOME = os.path.join(str(Path.home()), '.mi.token')
 
-LATEST_ASK_API = "https://userprofile.mina.mi.com/device_profile/v2/conversation?source=dialogu&hardware={hardware}&timestamp={timestamp}&limit={limit}"
-COOKIE_TEMPLATE = "deviceId={device_id}; serviceToken={service_token}; userId={user_id}"
-
 VERSION = "0.3.0"
 
 session = ClientSession()
 account = MiAccount(session, MI_USER, MI_PASS, MI_TOKEN_HOME)
-service = MiIOService(account)
+miio_service = MiIOService(account)
+mina_service = MiNAService(account)
 
 
-def get_cookie():
-    with open(MI_TOKEN_HOME) as f:
-        user_data = json.loads(f.read())
-    user_id = user_data.get("userId")
-    service_token = user_data.get("micoapi")[1]
-    cookie_string = COOKIE_TEMPLATE.format(device_id=MI_DEVICE_ID,
-                                           service_token=service_token,
-                                           user_id=user_id)
-    return parse_cookie_string(cookie_string)
-
-
-mina_cookies = get_cookie()
+async def get_device_by_name(name):
+    result = await mina_service.device_list()
+    for i in result:
+        if i['name'] == name:
+            return i["hardware"], i["deviceID"]
 
 app = FastAPI()
 
@@ -55,13 +45,13 @@ async def root():
 
 @app.get("/list")
 async def list():
-    result = await service.device_list()
+    result = await miio_service.device_list()
     return JSONResponse(result)
 
 
 @app.get("/spec")
 async def spec(model: str):
-    result = await service.miot_spec(model)
+    result = await miio_service.miot_spec(model)
     return Response(result)
 
 
@@ -86,7 +76,7 @@ class ActionCommand(BaseModel):
 @app.post("/say")
 async def say(action: ActionSay):
     logging.info(action.text)
-    result = await service.miot_request('action', {
+    result = await miio_service.miot_request('action', {
         'did': action.did,
         'siid': 5,
         'aiid': 3,
@@ -100,7 +90,7 @@ async def say(action: ActionSay):
 @app.post("/command")
 async def command(action: ActionCommand):
     logging.info(action.text)
-    result = await service.miot_request(
+    result = await miio_service.miot_request(
         'action', {
             'did': action.did,
             'siid': 5,
@@ -112,7 +102,7 @@ async def command(action: ActionCommand):
 
 @app.get("/volume")
 async def get_volume(did: str = MI_DID):
-    result = await service.miot_request('prop/get', [{
+    result = await miio_service.miot_request('prop/get', [{
         'did': did,
         'siid': 2,
         'piid': 1,
@@ -122,7 +112,7 @@ async def get_volume(did: str = MI_DID):
 
 @app.put("/volume")
 async def set_volume(value: int, did: str = MI_DID):
-    result = await service.miot_request('prop/set', [{
+    result = await miio_service.miot_request('prop/set', [{
         'did': did,
         'siid': 2,
         'piid': 1,
@@ -130,19 +120,23 @@ async def set_volume(value: int, did: str = MI_DID):
     }])
     return result
 
-import time
+
+@app.get("/conversation")
+async def get_conversation(name):
+    hardware, deviceID = await get_device_by_name(name)
+    result = await mina_service.conversation(hardware,
+                                                deviceID,
+                                                int(time.time() * 1000),
+                                                limit=2)
+    return result
+
 
 @app.get("/last_ask")
 async def get_latest_ask_from_xiaoai(limit=1, before=60):
     now = int(time.time() * 1000)
     before = int(before) * 1000
-    session.cookie_jar.update_cookies(mina_cookies)
-    r = await session.get(
-        LATEST_ASK_API.format(
-            hardware=MI_HARDWARE,
-            timestamp=now,
-            limit=limit,
-        ))
-    resp = json.loads((await r.json())["data"])["records"]
+
+    data = await mina_service.conversation(MI_HARDWARE, MI_DEVICE_ID, now, limit=limit)
+    resp = data["records"]
 
     return [i["query"] for i in resp if now - i["time"] < before]
